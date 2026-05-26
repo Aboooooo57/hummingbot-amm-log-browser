@@ -10,7 +10,7 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      - ${SQLITE_DB_DIR:-./data}:/data
+      - ${SQLITE_DB_DIR:-/home/ubuntu/v2hum/hummingbot_v2/data}:/data
     environment:
       - SQLITE_DB_DIR=/data
     restart: unless-stopped
