@@ -17,6 +17,9 @@ AMOUNT_SCALE = 100_000_000 # stored as integer ×10⁸  (satoshi-like)
 # Default directory for SQLite files
 DEFAULT_DB_DIR = os.getenv("SQLITE_DB_DIR", ".")
 
+# Cache TTL in seconds (default 10 min). Override with CACHE_TTL_SECONDS env var.
+CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "600"))
+
 ORDER_STATUS_COLORS = {
     "OrderFilled":       "#2ecc71",
     "BuyOrderCompleted": "#27ae60",
@@ -57,7 +60,7 @@ def _add_datetime(df: pd.DataFrame, col: str, new_col: str = "datetime") -> pd.D
     return df
 
 
-@st.cache_data(show_spinner="Loading fills…")
+@st.cache_data(show_spinner="Loading fills…", ttl=CACHE_TTL, max_entries=2)
 def load_fills(db_path: str) -> pd.DataFrame:
     df = _load_raw_table(db_path, "TradeFill")
     if df.empty:
@@ -68,7 +71,7 @@ def load_fills(db_path: str) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Loading orders…")
+@st.cache_data(show_spinner="Loading orders…", ttl=CACHE_TTL, max_entries=2)
 def load_orders(db_path: str) -> pd.DataFrame:
     df = _load_raw_table(db_path, "Order")
     if df.empty:
@@ -138,6 +141,12 @@ if not os.path.exists(db_path) and uploaded is None:
     st.stop()
 
 st.sidebar.success(f"Using: `{os.path.basename(db_path)}`")
+
+st.sidebar.caption(f"Cache expires every {CACHE_TTL // 60} min · max 2 DBs held in memory")
+if st.sidebar.button("🔄 Force refresh"):
+    load_fills.clear()
+    load_orders.clear()
+    st.rerun()
 
 # ── Load and pre-process tables (cached) ───────────────────────────────────────
 fills  = load_fills(db_path)
