@@ -214,7 +214,7 @@ with tab_fills:
             height=350, xaxis_title="Time", yaxis_title="Price (TMN)",
             legend=dict(orientation="h"), margin=dict(t=20),
         )
-        st.plotly_chart(fig_price, use_container_width=True)
+        st.plotly_chart(fig_price, width="stretch")
 
     with c2:
         st.markdown("**Cumulative BTC Volume Over Time**")
@@ -230,7 +230,7 @@ with tab_fills:
             height=350, xaxis_title="Time", yaxis_title="BTC",
             legend=dict(orientation="h"), margin=dict(t=20),
         )
-        st.plotly_chart(fig_vol, use_container_width=True)
+        st.plotly_chart(fig_vol, width="stretch")
 
     st.divider()
 
@@ -257,7 +257,7 @@ with tab_fills:
                 title="Fills per Level (BUY vs SELL)",
             )
             fig_lvl_f.update_layout(height=320, margin=dict(t=40))
-            st.plotly_chart(fig_lvl_f, use_container_width=True)
+            st.plotly_chart(fig_lvl_f, width="stretch")
         with lc2:
             # BTC volume by level
             lvl_vol_f = (
@@ -273,7 +273,7 @@ with tab_fills:
                 title="BTC Volume per Level (BUY vs SELL)",
             )
             fig_lvlv_f.update_layout(height=320, margin=dict(t=40))
-            st.plotly_chart(fig_lvlv_f, use_container_width=True)
+            st.plotly_chart(fig_lvlv_f, width="stretch")
 
     st.divider()
     st.markdown("**Fills Table**")
@@ -289,7 +289,7 @@ with tab_fills:
             "notional": st.column_config.NumberColumn("notional", format="%,.0f"),
             "amount":   st.column_config.NumberColumn("amount",   format="%,.8f"),
         },
-        use_container_width=True,
+        width="stretch",
         height=400,
     )
 
@@ -361,7 +361,7 @@ with tab_orders:
             height=350, xaxis_title="Time", yaxis_title="Price (TMN)",
             legend=dict(orientation="h", y=-0.2), margin=dict(t=20),
         )
-        st.plotly_chart(fig_op, use_container_width=True)
+        st.plotly_chart(fig_op, width="stretch")
 
     with c2:
         st.markdown("**Orders by Status (Count)**")
@@ -379,7 +379,7 @@ with tab_orders:
             height=350, xaxis_title="", yaxis_title="Count",
             margin=dict(t=20),
         )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar, width="stretch")
 
     st.divider()
 
@@ -409,7 +409,7 @@ with tab_orders:
                 title="Orders per Level (BUY vs SELL)",
             )
             fig_lvl_o.update_layout(height=320, margin=dict(t=40))
-            st.plotly_chart(fig_lvl_o, use_container_width=True)
+            st.plotly_chart(fig_lvl_o, width="stretch")
         with lc2:
             lvl_status_o = (
                 level_o.groupby(["level", "last_status"])
@@ -425,7 +425,7 @@ with tab_orders:
                 title="Orders per Level (stacked by Status)",
             )
             fig_lvl_st.update_layout(height=320, margin=dict(t=40))
-            st.plotly_chart(fig_lvl_st, use_container_width=True)
+            st.plotly_chart(fig_lvl_st, width="stretch")
         with lc3:
             lvl_vol_o = (
                 level_o.groupby(["level", "side"])["amount"]
@@ -440,7 +440,7 @@ with tab_orders:
                 title="BTC Volume per Level (BUY vs SELL)",
             )
             fig_lvlv_o.update_layout(height=320, margin=dict(t=40))
-            st.plotly_chart(fig_lvlv_o, use_container_width=True)
+            st.plotly_chart(fig_lvlv_o, width="stretch")
 
     st.divider()
     st.markdown("**Orders Table**")
@@ -456,7 +456,7 @@ with tab_orders:
             "notional": st.column_config.NumberColumn("notional", format="%,.0f"),
             "amount":   st.column_config.NumberColumn("amount",   format="%,.8f"),
         },
-        use_container_width=True,
+        width="stretch",
         height=450,
     )
 
@@ -535,7 +535,7 @@ with tab_avell:
         height=380, xaxis_title="Time", yaxis_title="Price (TMN)",
         legend=dict(orientation="h"), margin=dict(t=10),
     )
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, width="stretch")
 
     # ── Chart 2: Spreads
     st.markdown("#### Spread Dynamics")
@@ -554,7 +554,7 @@ with tab_avell:
         height=320, xaxis_title="Time", yaxis_title="Spread (TMN)",
         legend=dict(orientation="h"), margin=dict(t=10),
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
     # ── Chart 3: q, gamma, volatility in 3 sub-rows
     st.markdown("#### Inventory Skew (q), Risk Aversion (γ), and Volatility")
@@ -589,7 +589,7 @@ with tab_avell:
     fig3.update_yaxes(title_text="q",          row=1, col=1)
     fig3.update_yaxes(title_text="γ",          row=2, col=1)
     fig3.update_yaxes(title_text="Volatility", row=3, col=1)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
 
     st.divider()
     st.markdown("**Raw Avellaneda Parameters Table**")
@@ -606,4 +606,4 @@ with tab_avell:
         col_cfg["amount"] = st.column_config.NumberColumn("amount", format="%,.8f")
     if "q" in avell_display.columns:
         col_cfg["q"] = st.column_config.NumberColumn("q", format="%.6f")
-    st.dataframe(avell_display, column_config=col_cfg, use_container_width=True, height=400)
+    st.dataframe(avell_display, column_config=col_cfg, width="stretch", height=400)
