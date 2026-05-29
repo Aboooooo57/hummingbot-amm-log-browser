@@ -28,8 +28,7 @@ ORDER_STATUS_COLORS = {
 }
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-@st.cache_data(show_spinner="Loading data…")
-def load_table(db_path: str, table: str) -> pd.DataFrame:
+def _load_raw_table(db_path: str, table: str) -> pd.DataFrame:
     try:
         con = sqlite3.connect(db_path)
         df  = pd.read_sql_query(f'SELECT * FROM "{table}"', con)
@@ -40,8 +39,7 @@ def load_table(db_path: str, table: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def scale_prices_and_amounts(df: pd.DataFrame) -> pd.DataFrame:
-    """Divide stored integer price/amount columns by their scale factors."""
+def _scale_prices_and_amounts(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
     df = df.copy()
@@ -52,19 +50,35 @@ def scale_prices_and_amounts(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_datetime(df: pd.DataFrame, col: str, new_col: str = "datetime") -> pd.DataFrame:
-    """Convert millisecond-epoch column to a proper datetime column."""
+def _add_datetime(df: pd.DataFrame, col: str, new_col: str = "datetime") -> pd.DataFrame:
     if df.empty or col not in df.columns:
         return df
     df[new_col] = pd.to_datetime(df[col] / 1000, unit="s", utc=True).dt.tz_convert("Asia/Tehran")
     return df
 
 
-def fmt_number(v, decimals=2):
-    """Format large numbers with thousands separator."""
-    if pd.isna(v):
-        return ""
-    return f"{v:,.{decimals}f}"
+@st.cache_data(show_spinner="Loading fills…")
+def load_fills(db_path: str) -> pd.DataFrame:
+    df = _load_raw_table(db_path, "TradeFill")
+    if df.empty:
+        return df
+    df = _scale_prices_and_amounts(df)
+    df = _add_datetime(df, "timestamp", "datetime")
+    df["notional"] = df["price"] * df["amount"]
+    return df
+
+
+@st.cache_data(show_spinner="Loading orders…")
+def load_orders(db_path: str) -> pd.DataFrame:
+    df = _load_raw_table(db_path, "Order")
+    if df.empty:
+        return df
+    df = _scale_prices_and_amounts(df)
+    df = _add_datetime(df, "creation_timestamp", "datetime")
+    df = _add_datetime(df, "last_update_timestamp", "last_update_dt")
+    df["notional"] = df["price"] * df["amount"]
+    return df
+
 
 
 def apply_date_filter(df, dt_col, start_date, end_date):
@@ -125,25 +139,13 @@ if not os.path.exists(db_path) and uploaded is None:
 
 st.sidebar.success(f"Using: `{os.path.basename(db_path)}`")
 
-# ── Load raw tables ────────────────────────────────────────────────────────────
-raw_fills  = load_table(db_path, "TradeFill")
-raw_orders = load_table(db_path, "Order")
+# ── Load and pre-process tables (cached) ───────────────────────────────────────
+fills  = load_fills(db_path)
+orders = load_orders(db_path)
 
-if raw_fills.empty and raw_orders.empty:
+if fills.empty and orders.empty:
     st.error("The selected database seems empty or is not a valid Hummingbot log file.")
     st.stop()
-
-# ── Pre-process ────────────────────────────────────────────────────────────────
-fills  = scale_prices_and_amounts(raw_fills)
-orders = scale_prices_and_amounts(raw_orders)
-
-fills  = add_datetime(fills,  "timestamp",          "datetime")
-orders = add_datetime(orders, "creation_timestamp", "datetime")
-orders = add_datetime(orders, "last_update_timestamp", "last_update_dt")
-
-# Derived columns
-fills["notional"]  = fills["price"] * fills["amount"]   # in quote (TMN)
-orders["notional"] = orders["price"] * orders["amount"]
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 tab_fills, tab_orders, tab_avell = st.tabs(
@@ -271,10 +273,16 @@ with tab_fills:
         "exchange_trade_id", "order_id",
     ]
     display_df_f = df_f[display_cols_f].sort_values("datetime", ascending=False).reset_index(drop=True)
-    display_df_f["price"]    = display_df_f["price"].map(lambda x: fmt_number(x, 0))
-    display_df_f["notional"] = display_df_f["notional"].map(lambda x: fmt_number(x, 0))
-    display_df_f["amount"]   = display_df_f["amount"].map(lambda x: fmt_number(x, 8))
-    st.dataframe(display_df_f, use_container_width=True, height=400)
+    st.dataframe(
+        display_df_f,
+        column_config={
+            "price":    st.column_config.NumberColumn("price",    format="%,.0f"),
+            "notional": st.column_config.NumberColumn("notional", format="%,.0f"),
+            "amount":   st.column_config.NumberColumn("amount",   format="%.8f"),
+        },
+        use_container_width=True,
+        height=400,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -373,10 +381,10 @@ with tab_orders:
         st.info("No level data in the current order selection.")
     else:
         level_o["level"] = level_o["level"].astype(int)
-        # Derive side from order ID prefix
-        level_o["side"] = level_o["id"].apply(
-            lambda x: "BUY" if x.startswith("HB-BB") else ("SELL" if x.startswith("HB-SB") else "OTHER")
-        )
+        # Derive side from order ID prefix (vectorized)
+        level_o["side"] = "OTHER"
+        level_o.loc[level_o["id"].str.startswith("HB-BB"), "side"] = "BUY"
+        level_o.loc[level_o["id"].str.startswith("HB-SB"), "side"] = "SELL"
         lc1, lc2, lc3 = st.columns(3)
         with lc1:
             lvl_counts_o = (
@@ -432,10 +440,16 @@ with tab_orders:
         "level", "last_update_dt", "id", "exchange_order_id",
     ]
     display_df_o = df_o[display_cols_o].sort_values("datetime", ascending=False).reset_index(drop=True)
-    display_df_o["price"]    = display_df_o["price"].map(lambda x: fmt_number(x, 0))
-    display_df_o["notional"] = display_df_o["notional"].map(lambda x: fmt_number(x, 0))
-    display_df_o["amount"]   = display_df_o["amount"].map(lambda x: fmt_number(x, 8))
-    st.dataframe(display_df_o, use_container_width=True, height=450)
+    st.dataframe(
+        display_df_o,
+        column_config={
+            "price":    st.column_config.NumberColumn("price",    format="%,.0f"),
+            "notional": st.column_config.NumberColumn("notional", format="%,.0f"),
+            "amount":   st.column_config.NumberColumn("amount",   format="%.8f"),
+        },
+        use_container_width=True,
+        height=450,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -577,9 +591,10 @@ with tab_avell:
         "best_bid", "best_ask", "level",
     ]
     avell_display = avell_df[[c for c in avell_cols if c in avell_df.columns]].sort_values("datetime", ascending=False).reset_index(drop=True)
-    for col in ["price", "reservation_price", "optimal_spread", "implied_spread", "best_bid", "best_ask", "volatility"]:
-        if col in avell_display.columns:
-            avell_display[col] = avell_display[col].map(lambda x: fmt_number(x, 0) if pd.notna(x) else "")
-    avell_display["amount"] = avell_display["amount"].map(lambda x: fmt_number(x, 8) if pd.notna(x) else "")
-    avell_display["q"]      = avell_display["q"].map(lambda x: f"{x:.6f}" if pd.notna(x) else "")
-    st.dataframe(avell_display, use_container_width=True, height=400)
+    num_cols_0f = [c for c in ["price", "reservation_price", "optimal_spread", "implied_spread", "best_bid", "best_ask", "volatility"] if c in avell_display.columns]
+    col_cfg = {c: st.column_config.NumberColumn(c, format="%,.0f") for c in num_cols_0f}
+    if "amount" in avell_display.columns:
+        col_cfg["amount"] = st.column_config.NumberColumn("amount", format="%.8f")
+    if "q" in avell_display.columns:
+        col_cfg["q"] = st.column_config.NumberColumn("q", format="%.6f")
+    st.dataframe(avell_display, column_config=col_cfg, use_container_width=True, height=400)
