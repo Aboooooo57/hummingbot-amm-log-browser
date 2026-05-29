@@ -278,7 +278,7 @@ with tab_fills:
         column_config={
             "price":    st.column_config.NumberColumn("price",    format="%,.0f"),
             "notional": st.column_config.NumberColumn("notional", format="%,.0f"),
-            "amount":   st.column_config.NumberColumn("amount",   format="%.8f"),
+            "amount":   st.column_config.NumberColumn("amount",   format="%,.8f"),
         },
         use_container_width=True,
         height=400,
@@ -445,7 +445,7 @@ with tab_orders:
         column_config={
             "price":    st.column_config.NumberColumn("price",    format="%,.0f"),
             "notional": st.column_config.NumberColumn("notional", format="%,.0f"),
-            "amount":   st.column_config.NumberColumn("amount",   format="%.8f"),
+            "amount":   st.column_config.NumberColumn("amount",   format="%,.8f"),
         },
         use_container_width=True,
         height=450,
@@ -594,7 +594,7 @@ with tab_avell:
     num_cols_0f = [c for c in ["price", "reservation_price", "optimal_spread", "implied_spread", "best_bid", "best_ask", "volatility"] if c in avell_display.columns]
     col_cfg = {c: st.column_config.NumberColumn(c, format="%,.0f") for c in num_cols_0f}
     if "amount" in avell_display.columns:
-        col_cfg["amount"] = st.column_config.NumberColumn("amount", format="%.8f")
+        col_cfg["amount"] = st.column_config.NumberColumn("amount", format="%,.8f")
     if "q" in avell_display.columns:
         col_cfg["q"] = st.column_config.NumberColumn("q", format="%.6f")
     st.dataframe(avell_display, column_config=col_cfg, use_container_width=True, height=400)
